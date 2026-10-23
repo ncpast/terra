@@ -14,6 +14,7 @@ Rectangle {
     SystemStatus { id: sys }
 
     RowLayout {
+        id: mainRow
         anchors.fill: parent
         anchors.leftMargin: 15
         anchors.rightMargin: 15
@@ -71,5 +72,13 @@ Rectangle {
                 }
             }
         }
+    }
+
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 1
+        color: Theme.highlight
     }
 }

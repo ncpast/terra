@@ -18,15 +18,16 @@ ApplicationWindow {
     title: qsTr("TERRA")
     color: Theme.background_primary
 
+    SystemStatus { id: sys }
+
     StatusBar {
         id: statusBar
     }
 
-    Rectangle {
+    TopNavBar {
+        onSosTriggered: console.log("SOS triggered at", sys.time)
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: statusBar.bottom
-        height: 1
-        color: Theme.highlight
     }
 }
