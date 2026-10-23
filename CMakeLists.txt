@@ -31,6 +31,8 @@ qt_add_qml_module(appterra
         src/systemstatus.h
         src/systemstatus.cpp
         QML_FILES qml/navigation/StatusBar.qml
+        QML_FILES qml/navigation/TopNavBar.qml
+        QML_FILES qml/templates/TopNavButton.qml
 )
 
 target_include_directories(appterra PRIVATE src)
