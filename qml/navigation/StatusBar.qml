@@ -1,5 +1,5 @@
 import QtQuick 2.15
-import QtQuick.Layouts // Required for RowLayout and Layout properties
+import QtQuick.Layouts
 import terra
 
 Rectangle {
@@ -9,22 +9,25 @@ Rectangle {
     height: 30
     color: "transparent"
 
+    readonly property var allowedFixedSize: ["logo", "time", "gps", "pressure", "battery"]
+
     SystemStatus { id: sys }
 
     RowLayout {
         anchors.fill: parent
         anchors.leftMargin: 15
-        anchors.rightMargin: 15 // Ensure this matches leftMargin
-        spacing: 10
+        anchors.rightMargin: 15
+        spacing: 15
 
         Repeater {
             model: [
                 { type: "logo", label: "FALQUON//TERRA" },
-                { type: "info", label: "GPS 3D 00sat ±0m"},
-                { type: "info", label: "ALT 0000m"},
-                { type: "info", label: "BARO 000hPa 0/h"},
-                { type: "info", label: "TEMP 0°C"},
-                { type: "weather", label: "WX CAUTION"},
+                { type: "gps", label: "GPS 3D 00sat ±0m"},
+                { type: "altitude", label: "ALT 0000m"},
+                { type: "pressure", label: "BARO 000hPa 0/h"},
+                { type: "temperature", label: "TEMP 0°C"},
+                { type: "connection", label: sys.online ? "ONLINE" : "OFF-GRID"},
+                { type: "weather", label: "WX CALM"},
                 { type: "battery", label: (() => {
                         let bat = Math.max(0, Math.min(100, sys.battery));
 
@@ -40,9 +43,9 @@ Rectangle {
             ]
 
             Rectangle {
-                Layout.preferredWidth: contentText.implicitWidth + 10
+                Layout.fillWidth: allowedFixedSize.includes(modelData.type) ? false : true
+                Layout.preferredWidth: allowedFixedSize.includes(modelData.type) ? contentText.implicitWidth + 10 : 0
                 Layout.preferredHeight: contentText.implicitHeight + 4
-                Layout.fillWidth: (index > 0 && index < parent.parent.itemsModel.length - 1)
 
                 color: modelData.type === "weather" ? Theme.highlight : "transparent"
 
@@ -63,7 +66,7 @@ Rectangle {
                         if (modelData.type !== "battery") return Theme.highlight;
                         if (sys.battery <= 20 && sys.battery > 10) return Theme.alert;
                         if (sys.battery <= 10) return Theme.danger;
-                        else return Theme.highlight;
+                        return Theme.highlight;
                     }
                 }
             }
