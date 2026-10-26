@@ -7,6 +7,9 @@ Rectangle {
     id: root
     property alias currentTabIndex: tabs.currentIndex
     readonly property var names: ["MAP", "3D MAP", "ROUTES", "WEATHER", "ANNOTATIONS", "SYSTEM"]
+
+    readonly property int sosWidth: 112
+
     signal sosTriggered()
 
     implicitHeight: 45
@@ -30,13 +33,17 @@ Rectangle {
                     required property string modelData
                     text: "[" + (index + 1) + "] " + modelData
                 }
+
+                Component.onCompleted: {
+                    GlobalValues.toolBarWidth =  Math.max(0, (root.width - sosWidth) / names.length)
+                }
             }
         }
 
         AbstractButton {
             id: sos
             property real progress: 0
-            Layout.preferredWidth: 112
+            Layout.preferredWidth: sosWidth
             Layout.fillHeight: true
 
             topInset: 5
@@ -76,7 +83,7 @@ Rectangle {
                 spacing: -1
 
                 Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    Layout.alignment: Qt.AlignHCenter
                     text: "SOS"
                     color: Theme.highlight
                     font.family: "Hack"
@@ -85,7 +92,7 @@ Rectangle {
                     font.letterSpacing: 1.6
                 }
                 Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    Layout.alignment: Qt.AlignHCenter
                     text: "HOLD 3s"
                     color: "#9a9a9a"
                     font.family: "Hack"
