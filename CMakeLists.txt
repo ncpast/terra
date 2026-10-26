@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Quick Network)
 
-qt_standard_project_setup(REQUIRES 6.10)
+qt_standard_project_setup(REQUIRES 6.8)
 
 # Content of downloaded design from Figma to Qt or similar
 if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/importedcontent/CMakeLists.txt")
@@ -17,9 +17,13 @@ qt_add_executable(appterra
     src/main.cpp
 )
 
-set_source_files_properties(qml/Theme.qml
+set_source_files_properties(
+    qml/Theme.qml
+    qml/GlobalValues.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE
 )
+
+set(QML_IMPORT_PATH "$ENV{HOME}/.local/maplibre/qml" CACHE STRING "" FORCE)
 
 qt_add_qml_module(appterra
     URI terra
@@ -27,12 +31,21 @@ qt_add_qml_module(appterra
     QML_FILES
         qml/Main.qml
         qml/Theme.qml
+        qml/GlobalValues.qml
+        qml/navigation/StatusBar.qml
+        qml/navigation/TopNavBar.qml
+        qml/templates/TopNavButton.qml
+        qml/pages/MapPage.qml
+        styles/satellite.json
+        qml/pages/Map3D.qml
+        qml/pages/RoutesPage.qml
+        qml/pages/WeatherPage.qml
+        qml/pages/NotesPage.qml
+        qml/pages/SystemPage.qml
     SOURCES
         src/systemstatus.h
         src/systemstatus.cpp
-        QML_FILES qml/navigation/StatusBar.qml
-        QML_FILES qml/navigation/TopNavBar.qml
-        QML_FILES qml/templates/TopNavButton.qml
+        QML_FILES qml/templates/MapToolButton.qml
 )
 
 target_include_directories(appterra PRIVATE src)
