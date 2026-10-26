@@ -45,6 +45,7 @@ qt_add_qml_module(appterra
     SOURCES
         src/systemstatus.h
         src/systemstatus.cpp
+        QML_FILES qml/templates/MapToolButton.qml
 )
 
 target_include_directories(appterra PRIVATE src)

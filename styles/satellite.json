@@ -10,7 +10,7 @@
     }
   },
   "layers": [
-    { "id": "bg", "type": "background", "paint": { "background-color": "red" } },
+    { "id": "bg", "type": "background", "paint": { "background-color": "black" } },
     { "id": "sat", "type": "raster", "source": "sat" }
   ]
 }

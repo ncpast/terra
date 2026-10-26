@@ -22,7 +22,7 @@ Rectangle {
 
         Repeater {
             model: [
-                { type: "logo", label: "FALQUON//TERRA" },
+                { type: "logo", label: "KESTREL//TERRA" },
                 { type: "gps", label: "GPS 3D 00sat ±0m"},
                 { type: "altitude", label: "ALT 0000m"},
                 { type: "pressure", label: "BARO 000hPa 0/h"},
