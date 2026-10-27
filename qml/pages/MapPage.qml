@@ -1,8 +1,10 @@
 import QtQuick
 import QtQuick.Layouts
 import MapLibre 4.0
+import Qt5Compat.GraphicalEffects
 
 import "../templates/"
+import "../"
 
 ColumnLayout {
     id: root
@@ -10,11 +12,18 @@ ColumnLayout {
     property int bottomInfoHeight: 24
 
     property bool followGps: true
-    property bool satellite: false
+    property bool relief: false
+    property string layerMode: "map"
     property var gps: ({ lat: 49.2, lon: 20.0 })
 
     property var mapCoordinate: [49.2, 20.0]
-    property real mapZoom: 12
+    property real mapZoom: 15.4
+
+    onMapZoomChanged: {
+        if (mapZoom > 15.4) mapZoom = 15.4
+        else if (mapZoom < 0) mapZoom = 0
+        console.log(mapZoom)
+    }
 
     onFollowGpsChanged: if (followGps) mapCoordinate = [gps.lat, gps.lon]
 
@@ -90,8 +99,16 @@ ColumnLayout {
 
                 MapToolButton {
                     Layout.fillWidth: true
-                    label: "LAYERS"; value: root.satellite ? "SAT" : "MAP"
-                    onClicked: root.satellite = !root.satellite
+                    label: "LAYERS"; value: root.layerMode.toUpperCase()
+                    onClicked: root.layerMode = root.layerMode === "map" ? "sat"
+                                              : root.layerMode === "sat" ? "topo" : "map"
+                }
+
+                MapToolButton {
+                    Layout.fillWidth: true
+                    label: "RELIEF"; value: root.relief ? "[x]" : "[ ]"
+                    active: root.relief
+                    onClicked: root.relief = !root.relief
                 }
 
                 Rectangle {
@@ -116,21 +133,66 @@ ColumnLayout {
             clip: true
 
             MapLibre {
-                visible: !satellite
                 id: map
                 anchors.fill: parent
                 style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
                 zoomLevel: mapZoom
                 coordinate: mapCoordinate
+
+                Style {
+                    id: mapStyle
+
+                    SourceParameter {
+                        styleId: "sat"
+                        type: "raster"
+                        property var tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"]
+                        property int tileSize: 256
+                        property int maxzoom: 19
+                    }
+
+                    LayerParameter {
+                        styleId: "sat-layer"
+                        type: "raster"
+                        property string source: "sat"
+                        layout: ({ "visibility": root.layerMode === "sat" ? "visible" : "none" })
+                    }
+
+                    SourceParameter {
+                        styleId: "topo"
+                        type: "raster"
+                        property var tiles: ["https://tile.opentopomap.org/{z}/{x}/{y}.png"]
+                        property int tileSize: 256
+                        property int maxzoom: 17
+                    }
+
+                    LayerParameter {
+                        styleId: "topo-layer"
+                        type: "raster"
+                        property string source: "topo"
+                        layout: ({ "visibility": root.layerMode === "topo" ? "visible" : "none" })
+                    }
+
+                    SourceParameter {
+                        styleId: "relief"; type: "raster"
+                        property var tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"]
+                        property int tileSize: 256
+                    }
+
+                    LayerParameter {
+                        styleId: "relief-layer"; type: "raster"
+                        property string source: "relief"
+                        layout: ({ "visibility": root.relief ? "visible" : "none" })
+                        paint: ({ "raster-opacity": 0.55 })
+                    }
+                }
             }
 
-            MapLibre {
-                visible: satellite
-                id: satelliteMap
+            MapHud {
                 anchors.fill: parent
-                style: "file:///home/siro/Desktop/Projects/TERRA/terra/styles/satellite.json"
-                zoomLevel: mapZoom
-                coordinate: mapCoordinate
+                lat: root.gps.lat
+                lon: root.gps.lon
+                zoom: root.mapZoom
+                heading: 0
             }
 
             Item {

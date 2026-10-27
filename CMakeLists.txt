@@ -46,6 +46,8 @@ qt_add_qml_module(appterra
         src/systemstatus.h
         src/systemstatus.cpp
         QML_FILES qml/templates/MapToolButton.qml
+        QML_FILES styles/relief.json
+        QML_FILES qml/MapHud.qml
 )
 
 target_include_directories(appterra PRIVATE src)

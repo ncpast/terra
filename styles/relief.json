@@ -1,0 +1,14 @@
+{
+  "version": 8,
+  "sources": {
+    "relief": {
+      "type": "raster",
+      "tiles": ["https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"],
+      "tileSize": 256,
+      "maxzoom": 13
+    }
+  },
+  "layers": [
+    { "id": "relief", "type": "raster", "source": "relief" }
+  ]
+}
