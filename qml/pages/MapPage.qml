@@ -61,6 +61,7 @@ ColumnLayout {
 
     property bool placing: false
     property int wpCounter: 0
+    property int currentHighlightedWaypointId: -1
 
     function mercY(lat) {
         var s = Math.sin(lat * Math.PI / 180)
@@ -75,6 +76,14 @@ ColumnLayout {
         wpCounter++
         wpstore.add(lat, lon)
         placing = false
+    }
+
+    readonly property var highlightedWaypoint: {
+        var list = wpstore.waypoints
+        for (var i = 0; i < list.length; i++)
+            if (list[i].id === currentHighlightedWaypointId)
+                return list[i]
+        return null
     }
 
     // Submenus
@@ -379,6 +388,7 @@ ColumnLayout {
             Repeater {
                 model: wpstore.waypoints
                 delegate: Item {
+                    z: 9
                     readonly property real world: 512 * Math.pow(2, root.mapZoom)
 
                     visible: root.showWaypoints && modelData.shown
@@ -389,22 +399,33 @@ ColumnLayout {
                         width: 14; height: 14
                         x: -7; y: -7
                         rotation: 45
-                        color: "black"; border.color: "white"; border.width: 2
+                        color: Theme.background_primary
+                        border.color: root.currentHighlightedWaypointId === modelData.id ? Theme.alert : Theme.highlight
+                        border.width: 2
                     }
                     Text {
                         x: 14; y: -8
                         text: modelData.name
-                        color: "white"
+                        color: root.currentHighlightedWaypointId === modelData.id ? Theme.alert : Theme.highlight
                         font { family: "monospace"; pixelSize: 12; bold: true }
                         visible: mapZoom < 11 ? false : true
+                    }
+
+                    MouseArea {
+                        id: wpMArea
+                        x: -12; y: -12
+                        width: 24; height: 24
+                        enabled: !root.placing
+                        onClicked: root.currentHighlightedWaypointId = modelData.id
                     }
                 }
             }
 
             MapHud {
                 anchors.fill: parent
-                lat: root.gps.lat
-                lon: root.gps.lon
+                lat: root.highlightedWaypoint ? root.highlightedWaypoint.lat : root.gps.lat
+                lon: root.highlightedWaypoint ? root.highlightedWaypoint.lon : root.gps.lon
+                alert: root.currentHighlightedWaypointId !== -1
                 zoom: root.mapZoom
                 heading: 0
             }
@@ -480,6 +501,7 @@ ColumnLayout {
 
                     onClicked: (m) => {
                         if (root.placing && !moved) root.placeWaypoint(m.x, m.y, width, height)
+                        if (!moved) root.currentHighlightedWaypointId = -1
                     }
 
                     onWheel: (w) => {

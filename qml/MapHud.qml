@@ -6,6 +6,7 @@ Item {
     id: hud
     property real lat: 0
     property real lon: 0
+    property bool alert: false
     property real zoom: 0
     property real heading: 0          // degrees, 0 = north; later from IMU/GPS
 
@@ -100,13 +101,15 @@ Item {
     Rectangle {
         anchors { left: parent.left; bottom: parent.bottom; margins: 8 }
         width: coords.implicitWidth + 16; height: coords.implicitHeight + 10
-        color: hud.bg; border.color: hud.fg; border.width: 1
+        color: hud.bg; border.color: hud.alert ? Theme.alert : hud.fg; border.width: 1
         Column {
             id: coords
             anchors.centerIn: parent
             spacing: 2
-            Text { text: "LAT " + hud.fmt(hud.lat, "N", "S"); color: hud.fg; font { family: "Hack"; pixelSize: 13 } }
-            Text { text: "LON " + hud.fmt(hud.lon, "E", "W"); color: hud.fg; font { family: "Hack"; pixelSize: 13 } }
+            Text { text: "LAT " + hud.fmt(hud.lat, "N", "S"); color: hud.alert ? Theme.alert : hud.fg
+                font { family: "Hack"; pixelSize: 13 } }
+            Text { text: "LON " + hud.fmt(hud.lon, "E", "W"); color: hud.alert ? Theme.alert : hud.fg
+                font { family: "Hack"; pixelSize: 13 } }
         }
     }
 

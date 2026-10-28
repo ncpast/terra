@@ -16,6 +16,7 @@ public:
 
     Q_INVOKABLE void add(double lat, double lon) {
         QVariantMap wp;
+        wp["id"]    = m_nextId;
         wp["name"]  = "WP" + QString::number(m_nextId);
         wp["lat"]   = lat;
         wp["lon"]   = lon;
