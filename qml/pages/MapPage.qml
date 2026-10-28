@@ -7,6 +7,8 @@ import "../templates/"
 import "../"
 
 ColumnLayout {
+    WaypointStore { id: wpstore }
+
     id: root
     property real tabWidth: GlobalValues.toolBarWidth
     property int bottomInfoHeight: 24
@@ -55,6 +57,41 @@ ColumnLayout {
         }
     }
 
+    // Waypoints
+
+    property bool placing: false
+    property int wpCounter: 0
+
+    function mercY(lat) {
+        var s = Math.sin(lat * Math.PI / 180)
+        return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)
+    }
+
+    function placeWaypoint(px, py, w, h) {
+        var world = 512 * Math.pow(2, mapZoom)
+        var my = mercY(mapCoordinate[0]) * world + (py - h / 2)
+        var lon = mapCoordinate[1] + (px - w / 2) / world * 360
+        var lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * my / world))) * 180 / Math.PI
+        wpCounter++
+        wpstore.add(lat, lon)
+        placing = false
+    }
+
+    // Submenus
+
+    property int overlayDepth: 0    // 0 = tools, 1 = overlay menu, 2 = routes/waypoints list
+    property string overlaySub: ""  // "routes" | "waypoints"
+    property bool showRoutes: true
+    property bool showWaypoints: true
+
+    Timer {
+        id: dotTimer
+        interval: 700; repeat: true; running: root.placing
+        property int n: 1
+        onTriggered: n = n % 3 + 1
+        onRunningChanged: if (running) n = 1
+    }
+
     spacing: 0
 
     RowLayout {
@@ -92,16 +129,16 @@ ColumnLayout {
 
                 MapToolButton {
                     Layout.fillWidth: true
-                    label: "FOLLOW GPS"; value: root.followGps ? "[x]" : "[ ]"
-                    active: root.followGps
-                    onClicked: root.followGps = !root.followGps
+                    label: "LAYERS"; value: root.layerMode.toUpperCase()
+                    onClicked: root.layerMode = root.layerMode === "map" ? "sat"
+                                              : root.layerMode === "sat" ? "topo" : "map"
                 }
 
                 MapToolButton {
                     Layout.fillWidth: true
-                    label: "LAYERS"; value: root.layerMode.toUpperCase()
-                    onClicked: root.layerMode = root.layerMode === "map" ? "sat"
-                                              : root.layerMode === "sat" ? "topo" : "map"
+                    label: "FOLLOW GPS"; value: root.followGps ? "[x]" : "[ ]"
+                    active: root.followGps
+                    onClicked: root.followGps = !root.followGps
                 }
 
                 MapToolButton {
@@ -111,6 +148,21 @@ ColumnLayout {
                     onClicked: root.relief = !root.relief
                 }
 
+                MapToolButton {
+                    Layout.fillWidth: true
+                    label: "WAYPOINT"
+                    value: root.placing ? ".".repeat(dotTimer.n) : "+"
+                    active: root.placing
+                    onClicked: root.placing = !root.placing
+                }
+
+                MapToolButton {
+                    Layout.fillWidth: true
+                    label: "OVERLAY"
+                    value: ">"
+                    onClicked: root.overlayDepth = 1
+                }
+
                 Rectangle {
                     Layout.fillWidth: true
                     height: 1
@@ -118,6 +170,141 @@ ColumnLayout {
                 }
 
                 Item { Layout.fillHeight: true }
+            }
+
+            // Overlays
+
+            Item {
+                id: overlayMenu
+                anchors.fill: parent
+                z: 5
+
+                // page 1: overlay menu
+                Rectangle {
+                    width: parent.width; height: parent.height
+                    x: root.overlayDepth >= 1 ? 0 : -width
+                    z: 1
+                    color: "black"
+                    Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+                    ColumnLayout {
+                        anchors { left: parent.left; right: parent.right; top: parent.top }
+                        spacing: 0
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 24
+                            color: "transparent"
+
+                            Text {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
+                                anchors.rightMargin: 10
+                                verticalAlignment: Text.AlignVCenter
+
+                                text: "// OVERLAY"
+                                color: Theme.fg2
+                                font.family: "Hack"
+                                font.pixelSize: 12
+                            }
+                        }
+
+                        MapToolButton {
+                            Layout.fillWidth: true
+                            label: "< BACK"
+                            onClicked: root.overlayDepth = 0
+                        }
+
+                        MapToolButton {
+                            Layout.fillWidth: true
+                            label: "ROUTES"
+                            value: ">"
+                            onClicked: { root.overlaySub = "routes"; root.overlayDepth = 2 }
+                        }
+
+                        MapToolButton {
+                            Layout.fillWidth: true
+                            label: "WAYPOINTS"
+                            value: ">"
+                            onClicked: { root.overlaySub = "waypoints"; root.overlayDepth = 2 }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 1
+                            color: Theme.fg3
+                        }
+                    }
+                }
+
+                // page 2: visibility toggles for routes or waypoints
+                Rectangle {
+                    width: parent.width; height: parent.height
+                    x: root.overlayDepth >= 2 ? 0 : -width
+                    z: 2
+                    color: "black"
+                    Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: 0
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 24
+                            color: "transparent"
+
+                            Text {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
+                                anchors.rightMargin: 10
+                                verticalAlignment: Text.AlignVCenter
+
+                                text: "// " + root.overlaySub.toUpperCase()
+                                color: Theme.fg2
+                                font.family: "Hack"
+                                font.pixelSize: 12
+                            }
+                        }
+
+                        MapToolButton {
+                            Layout.fillWidth: true
+                            label: "< BACK"
+                            onClicked: root.overlayDepth = 1
+                        }
+                        MapToolButton {
+                            Layout.fillWidth: true
+                            label: root.overlaySub === "routes" ? "ALL ROUTES" : "ALL WAYPOINTS"
+                            value: (root.overlaySub === "routes" ? root.showRoutes : root.showWaypoints) ? "ON" : "OFF"
+                            active: root.overlaySub === "routes" ? root.showRoutes : root.showWaypoints
+                            onClicked: {
+                                if (root.overlaySub === "routes") root.showRoutes = !root.showRoutes
+                                else root.showWaypoints = !root.showWaypoints
+                            }
+                        }
+
+                        ListView {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            clip: true
+                            model: root.overlaySub === "waypoints" ? wpstore.waypoints : []
+
+                            delegate: MapToolButton {
+                                width: ListView.view.width
+                                label: modelData.name
+                                value: modelData.shown ? "ON" : "OFF"
+                                active: modelData.shown
+                                onClicked: wpstore.setShown(index, !modelData.shown)
+                            }
+
+                            footer: Rectangle {
+                                width: ListView.view.width
+                                height: 1
+                                color: Theme.fg3
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -187,6 +374,33 @@ ColumnLayout {
                 }
             }
 
+            // Waypoints
+
+            Repeater {
+                model: wpstore.waypoints
+                delegate: Item {
+                    readonly property real world: 512 * Math.pow(2, root.mapZoom)
+
+                    visible: root.showWaypoints && modelData.shown
+                    x: parent.width / 2 + (modelData.lon - root.mapCoordinate[1]) / 360 * world
+                    y: parent.height / 2 + (root.mercY(modelData.lat) - root.mercY(root.mapCoordinate[0])) * world
+
+                    Rectangle {
+                        width: 14; height: 14
+                        x: -7; y: -7
+                        rotation: 45
+                        color: "black"; border.color: "white"; border.width: 2
+                    }
+                    Text {
+                        x: 14; y: -8
+                        text: modelData.name
+                        color: "white"
+                        font { family: "monospace"; pixelSize: 12; bold: true }
+                        visible: mapZoom < 11 ? false : true
+                    }
+                }
+            }
+
             MapHud {
                 anchors.fill: parent
                 lat: root.gps.lat
@@ -240,18 +454,38 @@ ColumnLayout {
                     anchors.fill: parent
                     property real px: 0
                     property real py: 0
+                    property real pressX: 0
+                    property real pressY: 0
+                    property bool moved: false
 
-                    onPressed: (m) => { px = m.x; py = m.y }
+                    onPressed: (m) => { px = m.x; py = m.y; pressX = m.x; pressY = m.y; moved = false }
+
                     onPositionChanged: (m) => {
+                        if (!moved) {
+                            if (Math.abs(m.x - pressX) <= 8 && Math.abs(m.y - pressY) <= 8)
+                                return
+                            moved = true
+                            root.placing = false
+                            px = m.x; py = m.y
+                            return
+                        }
                         root.followGps = false
                         var dx = m.x - px, dy = m.y - py
                         px = m.x; py = m.y
                         var degPerPx = 360 / (512 * Math.pow(2, mapZoom))
                         var lat = mapCoordinate[0], lon = mapCoordinate[1]
                         mapCoordinate = [lat + dy * degPerPx * Math.cos(lat * Math.PI / 180),
-                                          lon - dx * degPerPx]
+                                         lon - dx * degPerPx]
                     }
-                    onWheel: (w) => mapZoom += w.angleDelta.y / 600
+
+                    onClicked: (m) => {
+                        if (root.placing && !moved) root.placeWaypoint(m.x, m.y, width, height)
+                    }
+
+                    onWheel: (w) => {
+                        root.placing = false
+                        mapZoom += w.angleDelta.y / 600
+                    }
                 }
             }
         }
