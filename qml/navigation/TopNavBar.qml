@@ -6,7 +6,7 @@ import "../templates/"
 Rectangle {
     id: root
     property alias currentTabIndex: tabs.currentIndex
-    readonly property var names: ["MAP", "3D MAP", "PLAN", "WEATHER", "ANNOTATIONS", "SYSTEM"]
+    readonly property var names: ["MAP", "3D MAP", "ANNOTATIONS", "PLAN", "WEATHER", "SYSTEM"]
 
     readonly property int sosWidth: 112
 

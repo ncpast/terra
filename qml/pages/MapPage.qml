@@ -7,9 +7,8 @@ import "../templates/"
 import "../"
 
 ColumnLayout {
-    WaypointStore { id: wpstore }
-
     id: root
+
     property real tabWidth: GlobalValues.toolBarWidth
     property int bottomInfoHeight: 24
 
@@ -74,12 +73,12 @@ ColumnLayout {
         var lon = mapCoordinate[1] + (px - w / 2) / world * 360
         var lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * my / world))) * 180 / Math.PI
         wpCounter++
-        wpstore.add(lat, lon)
+        WaypointStore.add(lat, lon)
         placing = false
     }
 
     readonly property var highlightedWaypoint: {
-        var list = wpstore.waypoints
+        var list = WaypointStore.waypoints
         for (var i = 0; i < list.length; i++)
             if (list[i].id === currentHighlightedWaypointId)
                 return list[i]
@@ -296,14 +295,14 @@ ColumnLayout {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             clip: true
-                            model: root.overlaySub === "waypoints" ? wpstore.waypoints : []
+                            model: root.overlaySub === "waypoints" ? WaypointStore.waypoints : []
 
                             delegate: MapToolButton {
                                 width: ListView.view.width
                                 label: modelData.name
                                 value: modelData.shown ? "ON" : "OFF"
                                 active: modelData.shown
-                                onClicked: wpstore.setShown(index, !modelData.shown)
+                                onClicked: WaypointStore.setShown(index, !modelData.shown)
                             }
 
                             footer: Rectangle {
@@ -386,7 +385,7 @@ ColumnLayout {
             // Waypoints
 
             Repeater {
-                model: wpstore.waypoints
+                model: WaypointStore.waypoints
                 delegate: Item {
                     z: 9
                     readonly property real world: 512 * Math.pow(2, root.mapZoom)

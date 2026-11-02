@@ -17,6 +17,11 @@ qt_add_executable(appterra
     src/main.cpp
 )
 
+qt_add_resources(appterra "kbstyle"
+    PREFIX "/qt/qml/QtQuick/VirtualKeyboard/Styles/TerraBW"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/qml/kbstyle"
+    FILES qml/kbstyle/style.qml)
+
 set_source_files_properties(
     qml/Theme.qml
     qml/GlobalValues.qml
