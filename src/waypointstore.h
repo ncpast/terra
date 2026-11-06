@@ -53,9 +53,10 @@ public:
 
     Q_INVOKABLE void remove(int id) {
         for (int i = 0; i < m_items.size(); i++) {
-            if (m_items[i].toMap()["id"].toInt() == id) {
+            if (m_items[i].toMap().value("id").toInt() == id) {
                 m_items.removeAt(i);
                 emit waypointsChanged();
+                emit waypointRemoved(id);
                 return;
             }
         }
@@ -63,6 +64,7 @@ public:
 
 signals:
     void waypointsChanged();
+    void waypointRemoved(int id);
 
 private:
     QVariantList m_items;

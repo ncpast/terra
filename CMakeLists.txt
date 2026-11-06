@@ -54,6 +54,7 @@ qt_add_qml_module(appterra
         QML_FILES qml/templates/MapToolButton.qml
         QML_FILES styles/relief.json
         QML_FILES qml/MapHud.qml
+        SOURCES src/routestore.h
 )
 
 target_include_directories(appterra PRIVATE src)

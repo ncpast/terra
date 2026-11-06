@@ -11,6 +11,11 @@ Rectangle {
     property int selectedWaypointId: -1
     property int selectedRouteId: -1
 
+    Connections {
+        target: WaypointStore
+        function onWaypointRemoved(id) { RouteStore.removeWaypoint(id) }
+    }
+
     component Field: ColumnLayout {
         id: field
         property string caption
@@ -111,6 +116,12 @@ Rectangle {
                     onClicked: selectedTab = "routes"
                 }
 
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: Theme.fg3
+                }
+
                 Item { Layout.fillHeight: true }
 
                 MapToolButton {
@@ -121,7 +132,7 @@ Rectangle {
                         if (selectedTab === "waypoints")
                             root.selectedWaypointId = WaypointStore.add(0, 0)
                         else
-                            console.log("TODO: create route")
+                            selectedRouteId = RouteStore.add()
                     }
                 }
 
@@ -200,6 +211,61 @@ Rectangle {
                     }
                 }
             }
+
+            ColumnLayout {
+                anchors.fill: parent
+                visible: selectedTab === "routes"
+                spacing: 0
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 24
+                    color: "transparent"
+
+                    Text {
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        verticalAlignment: Text.AlignVCenter
+                        text: "// ROUTES"
+                        color: Theme.fg2
+                        font.family: "Hack"; font.pixelSize: 12
+                    }
+                    Text {
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        verticalAlignment: Text.AlignVCenter
+                        horizontalAlignment: Text.AlignRight
+                        text: "NAME, CHECKPOINTS"
+                        color: Theme.fg2
+                        font.family: "Hack"; font.pixelSize: 12
+                    }
+                }
+
+                ListView {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+                    model: RouteStore.routes
+
+                    delegate: MapToolButton {
+                        width: ListView.view.width
+                        big: true
+                        label: modelData.name
+                        subcaption: modelData.waypointIds.length +
+                                    (modelData.waypointIds.length === 1 ? " CHECKPOINT" : " CHECKPOINTS")
+                        active: modelData.id === selectedRouteId
+                        onClicked: selectedRouteId = modelData.id
+                    }
+
+                    footer: Rectangle {
+                        width: ListView.view.width
+                        height: 1
+                        color: Theme.fg3
+                    }
+                }
+            }
         }
 
         Rectangle {
@@ -208,9 +274,12 @@ Rectangle {
             color: Theme.highlight
         }
 
-        // Editing tab
+        // Waypoint editor
+
         Item {
-            id: editor
+            id: waypointEditor
+
+            visible: selectedTab === "waypoints"
             Layout.fillWidth: true
             Layout.fillHeight: true
 
@@ -255,19 +324,34 @@ Rectangle {
                 WaypointStore.update(sid, nameField.text.trim(), lat, lon, wpVisible)
             }
 
+            readonly property var usedIn: {
+                var _dep = RouteStore.routes
+                return wp ? RouteStore.routesUsing(wp.id) : []
+            }
+
+            function removeFromRoute(routeId, waypointId) {
+                var list = RouteStore.routes
+                for (var i = 0; i < list.length; i++) {
+                    if (list[i].id !== routeId) continue
+                    var kept = list[i].waypointIds.filter(function (x) { return x !== waypointId })
+                    RouteStore.setCheckpoints(routeId, kept)
+                    return
+                }
+            }
+
             // Confirmation expires after 3 seconds
 
             Timer {
                 id: confirmTimer
                 interval: 3000
-                onTriggered: editor.confirmingDelete = false
+                onTriggered: waypointEditor.confirmingDelete = false
             }
 
             // When nothing is selected
 
             Text {
                 anchors.centerIn: parent
-                visible: !editor.wp
+                visible: !waypointEditor.wp
                 text: "// SELECT A WAYPOINT"
                 color: Theme.fg2
                 font.family: "Hack"; font.pixelSize: 12
@@ -277,7 +361,7 @@ Rectangle {
                 anchors.fill: parent
                 anchors.margins: 20
                 spacing: 16
-                visible: editor.wp !== null
+                visible: waypointEditor.wp !== null
 
                 // Top row
 
@@ -285,13 +369,13 @@ Rectangle {
                     Layout.fillWidth: true
                     Text {
                         Layout.fillWidth: true
-                        text: editor.wp ? editor.wp.name : ""
+                        text: waypointEditor.wp ? waypointEditor.wp.name : ""
                         color: Theme.highlight
                         font.family: "Hack"; font.pixelSize: 24; font.weight: 700
                         elide: Text.ElideRight
                     }
                     Text {
-                        text: editor.wp ? "ID " + editor.wp.id : ""
+                        text: waypointEditor.wp ? "ID " + waypointEditor.wp.id : ""
                         color: Theme.fg2
                         font.family: "Hack"; font.pixelSize: 12
                     }
@@ -327,13 +411,13 @@ Rectangle {
                         Layout.minimumWidth: 0
                         Layout.preferredWidth: 1
                         label: "VISIBILITY"
-                        filled: editor.wpVisible
-                        onClicked: editor.wpVisible = !editor.wpVisible
+                        filled: waypointEditor.wpVisible
+                        onClicked: waypointEditor.wpVisible = !waypointEditor.wpVisible
                     }
                 }
 
                 Text {
-                    text: editor.error ? "! " + editor.error : ""
+                    text: waypointEditor.error ? "! " + waypointEditor.error : ""
                     color: Theme.alert
                     font.family: "Hack"; font.pixelSize: 12
                 }
@@ -348,17 +432,20 @@ Rectangle {
                         Layout.fillWidth: true
                         label: "SAVE CHANGES"
                         filled: true
-                        onClicked: editor.save()
+                        onClicked: waypointEditor.save()
                     }
                     ActionButton {
                         Layout.fillWidth: true
-                        label: editor.confirmingDelete ? "TAP TO CONFIRM" : "DELETE"
+                        label: waypointEditor.confirmingDelete ? "TAP TO CONFIRM" : "DELETE"
                         onClicked: {
-                            if (!editor.confirmingDelete) {
-                                editor.confirmingDelete = true
+                            if (!waypointEditor.confirmingDelete) {
+                                if (waypointEditor.usedIn.length > 0)
+                                    waypointEditor.error = "WILL BE REMOVED FROM "
+                                            + waypointEditor.usedIn.length + " ROUTE(S). TAP AGAIN TO CONFIRM"
+                                waypointEditor.confirmingDelete = true
                                 confirmTimer.restart()
                             } else {
-                                WaypointStore.remove(editor.sid)
+                                WaypointStore.remove(waypointEditor.sid)
                                 root.selectedWaypointId = -1
                             }
                         }
@@ -368,18 +455,323 @@ Rectangle {
                 Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.fg3 }
 
                 Text {
-                    text: "// USED IN ROUTES"
+                    text: "// USED IN ROUTES (" + waypointEditor.usedIn.length + ")"
                     color: Theme.fg2
                     font.family: "Hack"; font.pixelSize: 12
                 }
+
+                ListView {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+                    model: waypointEditor.usedIn
+
+                    delegate: Item {
+                        width: ListView.view.width
+                        height: 48
+
+                        RowLayout {
+                            anchors.fill: parent
+                            spacing: 8
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: modelData.name
+                                color: Theme.highlight
+                                elide: Text.ElideRight
+                                font.family: "Hack"; font.pixelSize: 14; font.weight: 700
+                            }
+                            ActionButton {
+                                Layout.preferredWidth: 64; Layout.preferredHeight: 36
+                                label: "VIEW"
+                                onClicked: {
+                                    root.selectedRouteId = modelData.id
+                                    root.selectedTab = "routes"
+                                }
+                            }
+                            ActionButton {
+                                Layout.preferredWidth: 44; Layout.preferredHeight: 36
+                                label: "x"
+                                onClicked: waypointEditor.removeFromRoute(modelData.id, waypointEditor.sid)
+                            }
+                        }
+
+                        Rectangle {
+                            anchors.bottom: parent.bottom
+                            width: parent.width; height: 1
+                            color: Theme.fg3
+                        }
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        visible: parent.count === 0
+                        text: "NOT USED IN ANY ROUTE"
+                        color: Theme.fg2
+                        font.family: "Hack"; font.pixelSize: 12
+                    }
+                }
+            }
+        }
+
+        // Route editor
+
+        Item {
+            id: routeEditor
+
+            visible: selectedTab === "routes"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+
+            property int sid: root.selectedRouteId
+            property bool confirmingDelete: false
+            property string error: ""
+
+            // Finds selected route based on ID
+
+            function find(id) {
+                var list = RouteStore.routes
+                for (var i = 0; i < list.length; i++)
+                    if (list[i].id === id)
+                        return list[i]
+                return null
+            }
+
+            readonly property var route: find(root.selectedRouteId)
+
+            function load() {
+                picking = false
+                confirmingDelete = false
+                error = ""
+                var r = find(sid)
+                if (!r) return
+                routeNameField.text = r.name
+            }
+            onSidChanged: load()
+
+            function save() {
+                if (routeNameField.text.trim() === "") { error = "NAME CANNOT BE EMPTY"; return }
+                error = ""
+                RouteStore.rename(sid, routeNameField.text.trim())
+            }
+
+            property bool picking: false
+
+            function wpName(id) {   // reads WaypointStore.waypoints, so it stays up to date
+                var list = WaypointStore.waypoints
+                for (var i = 0; i < list.length; i++)
+                    if (list[i].id === id)
+                        return list[i].name
+                return "(DELETED)"
+            }
+
+            function setList(list) { RouteStore.setCheckpoints(sid, list) }
+
+            function move(i, delta) {
+                var list = route.waypointIds.slice()
+                var j = i + delta
+                if (j < 0 || j >= list.length) return
+                var tmp = list[i]; list[i] = list[j]; list[j] = tmp
+                setList(list)
+            }
+
+            function removeAt(i) {
+                var list = route.waypointIds.slice()
+                list.splice(i, 1)
+                setList(list)
+            }
+
+            function addCheckpoint(waypointId) {
+                var list = route.waypointIds.slice()
+                list.push(waypointId)   // the same waypoint can be added again
+                setList(list)
+                picking = false
+            }
+
+            // Confirmation expires after 3 seconds
+
+            Timer {
+                id: routeConfirmTimer
+                interval: 3000
+                onTriggered: routeEditor.confirmingDelete = false
+            }
+
+            // When nothing is selected
+
+            Text {
+                anchors.centerIn: parent
+                visible: !routeEditor.route
+                text: "// SELECT A ROUTE"
+                color: Theme.fg2
+                font.family: "Hack"; font.pixelSize: 12
+            }
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 20
+                spacing: 16
+                visible: routeEditor.route !== null
+
+                // Top row
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text {
+                        Layout.fillWidth: true
+                        text: routeEditor.route ? routeEditor.route.name : ""
+                        color: Theme.highlight
+                        font.family: "Hack"; font.pixelSize: 24; font.weight: 700
+                        elide: Text.ElideRight
+                    }
+                    Text {
+                        text: routeEditor.route ? "ID " + routeEditor.route.id : ""
+                        color: Theme.fg2
+                        font.family: "Hack"; font.pixelSize: 12
+                    }
+                }
+
+                Field { id: routeNameField; Layout.fillWidth: true; caption: "NAME" }
 
                 Text {
-                    text: "NO ROUTES YET"
+                    text: routeEditor.error ? "! " + routeEditor.error : ""
+                    color: Theme.alert
+                    font.family: "Hack"; font.pixelSize: 12
+                }
+
+                // Bottom buttons
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 12
+
+                    ActionButton {
+                        Layout.fillWidth: true
+                        label: "SAVE CHANGES"
+                        filled: true
+                        onClicked: routeEditor.save()
+                    }
+                    ActionButton {
+                        Layout.fillWidth: true
+                        label: routeEditor.confirmingDelete ? "TAP TO CONFIRM" : "DELETE"
+                        onClicked: {
+                            if (waypointEditor.usedIn.length > 0) {
+                                waypointEditor.error = "USED IN " + waypointEditor.usedIn.length + " ROUTE(S): REMOVE IT FROM THEM FIRST"
+                                return
+                            }
+                            if (!routeEditor.confirmingDelete) {
+                                routeEditor.confirmingDelete = true
+                                routeConfirmTimer.restart()
+                            } else {
+                                RouteStore.remove(routeEditor.sid)
+                                root.selectedRouteId = -1
+                            }
+                        }
+                    }
+                }
+
+                Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.fg3 }
+
+                Text {
+                    text: routeEditor.picking ? "// PICK A WAYPOINT" : "// CHECKPOINTS"
                     color: Theme.fg2
                     font.family: "Hack"; font.pixelSize: 12
                 }
 
-                Item { Layout.fillHeight: true }
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+
+                    // ordered checkpoints
+                    ListView {
+                        anchors.fill: parent
+                        visible: !routeEditor.picking
+                        clip: true
+                        model: routeEditor.route ? routeEditor.route.waypointIds : []
+
+                        delegate: Item {
+                            width: ListView.view.width
+                            height: 48
+
+                            RowLayout {
+                                anchors.fill: parent
+                                spacing: 8
+
+                                Text {
+                                    Layout.preferredWidth: 24
+                                    text: index + 1
+                                    color: Theme.fg2
+                                    font.family: "Hack"; font.pixelSize: 13
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: routeEditor.wpName(modelData)
+                                    color: Theme.highlight
+                                    elide: Text.ElideRight
+                                    font.family: "Hack"; font.pixelSize: 14; font.weight: 700
+                                }
+                                ActionButton {
+                                    Layout.preferredWidth: 44; Layout.preferredHeight: 36
+                                    label: "^"
+                                    onClicked: routeEditor.move(index, -1)
+                                }
+                                ActionButton {
+                                    Layout.preferredWidth: 44; Layout.preferredHeight: 36
+                                    label: "v"
+                                    onClicked: routeEditor.move(index, 1)
+                                }
+                                ActionButton {
+                                    Layout.preferredWidth: 44; Layout.preferredHeight: 36
+                                    label: "x"
+                                    onClicked: routeEditor.removeAt(index)
+                                }
+                            }
+
+                            Rectangle {
+                                anchors.bottom: parent.bottom
+                                width: parent.width; height: 1
+                                color: Theme.fg3
+                            }
+                        }
+
+                        Text {
+                            anchors.centerIn: parent
+                            visible: parent.count === 0
+                            text: "NO CHECKPOINTS YET"
+                            color: Theme.fg2
+                            font.family: "Hack"; font.pixelSize: 12
+                        }
+                    }
+
+                    // waypoint picker
+                    ListView {
+                        anchors.fill: parent
+                        visible: routeEditor.picking
+                        clip: true
+                        model: WaypointStore.waypoints
+
+                        delegate: MapToolButton {
+                            width: ListView.view.width
+                            label: modelData.name
+                            value: modelData.lat.toFixed(3) + ", " + modelData.lon.toFixed(3)
+                            onClicked: routeEditor.addCheckpoint(modelData.id)
+                        }
+
+                        Text {
+                            anchors.centerIn: parent
+                            visible: parent.count === 0
+                            text: "NO WAYPOINTS YET"
+                            color: Theme.fg2
+                            font.family: "Hack"; font.pixelSize: 12
+                        }
+                    }
+                }
+
+                ActionButton {
+                    Layout.fillWidth: true
+                    label: routeEditor.picking ? "CANCEL" : "+ ADD CHECKPOINT"
+                    filled: !routeEditor.picking
+                    onClicked: routeEditor.picking = !routeEditor.picking
+                }
             }
         }
     }
