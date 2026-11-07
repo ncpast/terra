@@ -596,11 +596,28 @@ Rectangle {
                     for (var j = 0; j < wps.length; j++)
                         if (wps[j].id === ids[i]) { pts.push({ lat: wps[j].lat, lon: wps[j].lon }); break }
 
-                var res = RoutePlanner.plan(pts)
-                if (!res.ok) { error = res.error; return }
                 error = ""
-                RouteStore.setPath(sid, res.coordinates, res.lengthMeters)
-                console.log("stored", RouteStore.routes.length, JSON.stringify(RouteStore.routes[0]).length)
+                RoutePlanner.planAsync(sid, pts)   // result arrives in onPlanned below
+            }
+
+            // The result names its route: the user may have selected another one meanwhile
+            Connections {
+                target: RoutePlanner
+                function onPlanned(routeId, res) {
+                    if (!res.ok) {
+                        if (routeId === routeEditor.sid) routeEditor.error = res.error
+                        return
+                    }
+                    RouteStore.setPath(routeId, res.coordinates, res.lengthMeters)
+                }
+            }
+
+            // "⣿⣿⣿⣿⣿⣄⣀⣀⣀⣀⣀⣀⣀": full cells, one leading-edge cell, empty cells
+            function progressBar(p) {
+                var n = 13, filled = Math.floor(p * n), s = ""
+                for (var i = 0; i < n; i++)
+                    s += i < filled ? "⣿" : (i === filled ? "⣄" : "⣀")
+                return s
             }
 
             // Confirmation expires after 3 seconds
@@ -668,8 +685,8 @@ Rectangle {
 
                     ActionButton {
                         Layout.fillWidth: true
-                        label: "CALCULATE"
-                        onClicked: routeEditor.calculate()
+                        label: RoutePlanner.busy ? routeEditor.progressBar(RoutePlanner.progress) : "CALCULATE"
+                        onClicked: if (!RoutePlanner.busy) routeEditor.calculate()
                     }
 
                     ActionButton {

@@ -63,7 +63,7 @@ Rectangle {
                     font.pixelSize: 13
                     text: modelData.label
                     color: {
-                        if (modelData.type === "weather") return Theme.background;
+                        if (modelData.type === "weather") return Theme.background_primary;
                         if (modelData.type !== "battery") return Theme.highlight;
                         if (sys.battery <= 20 && sys.battery > 10) return Theme.alert;
                         if (sys.battery <= 10) return Theme.danger;

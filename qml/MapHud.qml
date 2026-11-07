@@ -9,6 +9,7 @@ Item {
     property bool alert: false
     property real zoom: 0
     property real heading: 0          // degrees, 0 = north; later from IMU/GPS
+    property var routeNames: []       // routes the selected waypoint belongs to (shown above the coordinates)
 
     readonly property color fg: "white"
     readonly property color bg: "black"
@@ -106,6 +107,13 @@ Item {
             id: coords
             anchors.centerIn: parent
             spacing: 2
+            Text {
+                visible: hud.routeNames.length > 0
+                text: "// PART OF ROUTE(S):\n" + hud.routeNames.join("\n")
+                color: Theme.fg2
+                font { family: "Hack"; pixelSize: 12 }
+                bottomPadding: 4
+            }
             Text { text: "LAT " + hud.fmt(hud.lat, "N", "S"); color: hud.alert ? Theme.alert : hud.fg
                 font { family: "Hack"; pixelSize: 13 } }
             Text { text: "LON " + hud.fmt(hud.lon, "E", "W"); color: hud.alert ? Theme.alert : hud.fg

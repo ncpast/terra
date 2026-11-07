@@ -21,6 +21,7 @@ public:
         r["id"] = id;
         r["name"] = "ROUTE " + QString::number(id);
         r["waypointIds"] = QVariantList();
+        r["shown"] = true;   // drawn on the map (map overlay > routes)
         m_items.append(r);
         emit routesChanged();
         return id;
@@ -31,6 +32,15 @@ public:
         if (i < 0) return;
         QVariantMap r = m_items[i].toMap();
         r["name"] = name;
+        m_items[i] = r;
+        emit routesChanged();
+    }
+
+    Q_INVOKABLE void setShown(int id, bool shown) {
+        int i = indexOf(id);
+        if (i < 0) return;
+        QVariantMap r = m_items[i].toMap();
+        r["shown"] = shown;
         m_items[i] = r;
         emit routesChanged();
     }

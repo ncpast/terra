@@ -105,3 +105,81 @@ PathResult Router::findPath(const Grid &grid, Cell start, Cell goal) {
     result.found = true;
     return result;
 }
+
+// Amanatides-Woo grid traversal from the centre of a to the centre of b
+bool Router::lineCost(const Grid &grid, Cell a, Cell b, double &cost) {
+    const double dx = b.x - a.x, dy = b.y - a.y;
+    const double len = std::hypot(dx, dy);
+    const int sx = dx > 0 ? 1 : (dx < 0 ? -1 : 0);
+    const int sy = dy > 0 ? 1 : (dy < 0 ? -1 : 0);
+
+    // t runs 0..1 along the segment; tDelta = t needed to cross one whole cell
+    const double tDeltaX = sx ? 1.0 / std::abs(dx) : INF;
+    const double tDeltaY = sy ? 1.0 / std::abs(dy) : INF;
+    double tMaxX = 0.5 * tDeltaX;   // from a centre it is half a cell to the first border
+    double tMaxY = 0.5 * tDeltaY;
+
+    int x = a.x, y = a.y;
+    double t = 0;
+    cost = 0;
+    while (true) {
+        if (grid.blocked(x, y)) return false;
+        const double next = std::min({tMaxX, tMaxY, 1.0});
+        cost += (next - t) * len * grid.cost(x, y);
+        t = next;
+        if (t >= 1.0) return true;
+
+        if (std::abs(tMaxX - tMaxY) < 1e-9) {   // exactly through a corner
+            if (grid.blocked(x + sx, y) || grid.blocked(x, y + sy)) return false;
+            x += sx; y += sy;
+            tMaxX += tDeltaX; tMaxY += tDeltaY;
+        } else if (tMaxX < tMaxY) {
+            x += sx; tMaxX += tDeltaX;
+        } else {
+            y += sy; tMaxY += tDeltaY;
+        }
+    }
+}
+
+bool Router::nearestFree(const Grid &grid, Cell c, int maxRadius, Cell &out) {
+    int best = -1;  // squared distance of the best cell so far
+    for (int r = 0; r <= maxRadius; r++) {
+        if (best >= 0 && r * r > best) break;   // every further ring is farther than the best
+        for (int dy = -r; dy <= r; dy++)
+            for (int dx = -r; dx <= r; dx++) {
+                if (std::max(std::abs(dx), std::abs(dy)) != r) continue;   // ring r only
+                const int x = c.x + dx, y = c.y + dy;
+                if (x < 0 || y < 0 || x >= grid.width() || y >= grid.height()) continue;
+                if (grid.blocked(x, y)) continue;
+                const int d = dx * dx + dy * dy;
+                if (best < 0 || d < best) { best = d; out = {x, y}; }
+            }
+    }
+    return best >= 0;
+}
+
+std::vector<Cell> Router::smooth(const Grid &grid, const std::vector<Cell> &path) {
+    if (path.size() < 3) return path;
+
+    // cost along the grid path up to each cell (same step rule as findPath)
+    std::vector<double> along(path.size(), 0.0);
+    for (size_t k = 1; k < path.size(); k++) {
+        const bool diagonal = path[k].x != path[k - 1].x && path[k].y != path[k - 1].y;
+        along[k] = along[k - 1] + (diagonal ? SQRT2 : 1.0) * grid.cost(path[k].x, path[k].y);
+    }
+
+    // greedy: from each kept vertex, go straight as far as the line stays clear and no dearer
+    std::vector<Cell> out{ path.front() };
+    size_t i = 0;
+    while (i + 1 < path.size()) {
+        size_t j = i + 1;
+        for (size_t k = i + 2; k < path.size(); k++) {
+            double c;
+            if (lineCost(grid, path[i], path[k], c) && c <= along[k] - along[i] + 1e-9) j = k;
+            else break;
+        }
+        out.push_back(path[j]);
+        i = j;
+    }
+    return out;
+}

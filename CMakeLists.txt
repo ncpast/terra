@@ -61,6 +61,7 @@ qt_add_qml_module(appterra
         SOURCES src/geogrid.h
         SOURCES src/routeplanner.h
         SOURCES src/osmcost.h
+        SOURCES src/corridor.h
 )
 
 enable_testing()

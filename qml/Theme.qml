@@ -7,5 +7,6 @@ QtObject {
     readonly property color fg2: '#9a9a9a'
     readonly property color fg3: '#3a3a3a'
     readonly property color alert: '#F39C12'
+    readonly property color alertHighlight: '#ffe8a8'
     readonly property color danger: '#E74C3C'
 }

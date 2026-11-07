@@ -35,9 +35,21 @@ public:
         lon = m_west + (c.x + 0.5) * m_cell / m_mPerDegLon;
     }
 
+    // true if the point falls in one of the grid's cells. The last row/column reach a little
+    // past south/east (the size is rounded up to whole cells), so this is not a bounds check.
     bool contains(double lat, double lon) const {
-        return lat >= m_south && lat <= m_north && lon >= m_west && lon <= m_east;
+        const double x = cellX(lon), y = cellY(lat);
+        return x >= 0 && y >= 0 && x < m_w && y < m_h;
     }
+
+    // does the box overlap the grid at all
+    bool intersects(double south, double west, double north, double east) const {
+        return south <= m_north && north >= m_south && west <= m_east && east >= m_west;
+    }
+
+    // fractional cell coordinates, NOT clamped (may lie outside the grid)
+    double cellX(double lon) const { return (lon - m_west) * m_mPerDegLon / m_cell; }
+    double cellY(double lat) const { return (m_north - lat) * m_mPerDegLat / m_cell; }
 
 private:
     double m_north, m_west, m_south, m_east, m_cell;
