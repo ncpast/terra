@@ -92,6 +92,55 @@ ColumnLayout {
     property bool showRoutes: true
     property bool showWaypoints: true
 
+    // Pathfinding
+
+    readonly property var routeGeoJson: {
+        var features = []
+        var list = RouteStore.routes
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].path && list[i].path.length > 1)
+                features.push({ type: "Feature", properties: { id: list[i].id },
+                                geometry: { type: "LineString", coordinates: list[i].path } })
+        }
+        return { type: "FeatureCollection", features: showRoutes ? features : [] }
+    }
+
+    property var routeSrc: null
+    property var routeLyr: null
+
+    Component {
+        id: routeSrcComp
+        SourceParameter {
+            styleId: "routes"
+            type: "geojson"
+            property var data: ""
+        }
+    }
+
+    Component {
+        id: routeLyrComp
+        LayerParameter {
+            styleId: "routes-line"
+            type: "line"
+            property string source: "routes"
+            layout: ({ "line-join": "round", "line-cap": "round" })
+            paint: ({ "line-color": "#ffffff", "line-width": 3 })
+        }
+    }
+
+    function pushRoutes() {
+        if (routeLyr) { map.removeStyleParameter(routeLyr); routeLyr.destroy() }   // layer first, then its source
+        if (routeSrc) { map.removeStyleParameter(routeSrc); routeSrc.destroy() }
+
+        routeSrc = routeSrcComp.createObject(map, { "data": JSON.stringify(routeGeoJson) })
+        routeLyr = routeLyrComp.createObject(map)
+        map.addStyleParameter(routeSrc)
+        map.addStyleParameter(routeLyr)
+    }
+
+    onRouteGeoJsonChanged: pushRoutes()
+    Component.onCompleted: pushRoutes()          // create the first pair (empty) at startup
+
     Timer {
         id: dotTimer
         interval: 700; repeat: true; running: root.placing
@@ -336,6 +385,21 @@ ColumnLayout {
 
                 Style {
                     id: mapStyle
+
+                    SourceParameter {
+                        id: routesSource
+                        styleId: "routes"
+                        type: "geojson"
+                        property var data: '{"type":"FeatureCollection","features":[]}'
+                    }
+
+                    LayerParameter {
+                        styleId: "routes-line"
+                        type: "line"
+                        property string source: "routes"
+                        layout: ({ "line-join": "round", "line-cap": "round" })
+                        paint: ({ "line-color": "#ffffff", "line-width": 3 })
+                    }
 
                     SourceParameter {
                         styleId: "sat"

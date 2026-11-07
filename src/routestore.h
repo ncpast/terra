@@ -47,6 +47,8 @@ public:
         if (i < 0) return;
         QVariantMap r = m_items[i].toMap();
         r["waypointIds"] = waypointIds;
+        r.remove("path");
+        r.remove("length");
         m_items[i] = r;
         emit routesChanged();
     }
@@ -85,6 +87,16 @@ public:
         }
 
         return result;
+    }
+
+    Q_INVOKABLE void setPath(int id, QVariantList coordinates, double lengthMeters) {
+        int i = indexOf(id);
+        if (i < 0) return;
+        QVariantMap r = m_items[i].toMap();
+        r["path"] = coordinates;
+        r["length"] = lengthMeters;
+        m_items[i] = r;
+        emit routesChanged();
     }
 
 signals:

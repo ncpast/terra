@@ -588,6 +588,21 @@ Rectangle {
                 picking = false
             }
 
+            function calculate() {
+                var pts = []
+                var ids = route.waypointIds
+                var wps = WaypointStore.waypoints
+                for (var i = 0; i < ids.length; i++)
+                    for (var j = 0; j < wps.length; j++)
+                        if (wps[j].id === ids[i]) { pts.push({ lat: wps[j].lat, lon: wps[j].lon }); break }
+
+                var res = RoutePlanner.plan(pts)
+                if (!res.ok) { error = res.error; return }
+                error = ""
+                RouteStore.setPath(sid, res.coordinates, res.lengthMeters)
+                console.log("stored", RouteStore.routes.length, JSON.stringify(RouteStore.routes[0]).length)
+            }
+
             // Confirmation expires after 3 seconds
 
             Timer {
@@ -650,14 +665,17 @@ Rectangle {
                         filled: true
                         onClicked: routeEditor.save()
                     }
+
+                    ActionButton {
+                        Layout.fillWidth: true
+                        label: "CALCULATE"
+                        onClicked: routeEditor.calculate()
+                    }
+
                     ActionButton {
                         Layout.fillWidth: true
                         label: routeEditor.confirmingDelete ? "TAP TO CONFIRM" : "DELETE"
                         onClicked: {
-                            if (waypointEditor.usedIn.length > 0) {
-                                waypointEditor.error = "USED IN " + waypointEditor.usedIn.length + " ROUTE(S): REMOVE IT FROM THEM FIRST"
-                                return
-                            }
                             if (!routeEditor.confirmingDelete) {
                                 routeEditor.confirmingDelete = true
                                 routeConfirmTimer.restart()
