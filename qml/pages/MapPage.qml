@@ -7,9 +7,8 @@ import "../templates/"
 import "../"
 
 ColumnLayout {
-    WaypointStore { id: wpstore }
-
     id: root
+
     property real tabWidth: GlobalValues.toolBarWidth
     property int bottomInfoHeight: 24
 
@@ -22,9 +21,8 @@ ColumnLayout {
     property real mapZoom: 15.4
 
     onMapZoomChanged: {
-        if (mapZoom > 15.4) mapZoom = 15.4
+        if (mapZoom > 19) mapZoom = 19
         else if (mapZoom < 0) mapZoom = 0
-        console.log(mapZoom)
     }
 
     onFollowGpsChanged: if (followGps) mapCoordinate = [gps.lat, gps.lon]
@@ -74,16 +72,60 @@ ColumnLayout {
         var lon = mapCoordinate[1] + (px - w / 2) / world * 360
         var lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * my / world))) * 180 / Math.PI
         wpCounter++
-        wpstore.add(lat, lon)
+        WaypointStore.add(lat, lon)
         placing = false
     }
 
     readonly property var highlightedWaypoint: {
-        var list = wpstore.waypoints
+        var list = WaypointStore.waypoints
         for (var i = 0; i < list.length; i++)
             if (list[i].id === currentHighlightedWaypointId)
                 return list[i]
         return null
+    }
+
+    // Visible routes that contain the selected waypoint, and every waypoint of those routes:
+    // drawn in the selection colour. The HUD still shows only the selected waypoint.
+    readonly property var highlightedRouteIds: {
+        var out = []
+        if (currentHighlightedWaypointId === -1 || !showRoutes) return out
+        var list = RouteStore.routes
+        for (var i = 0; i < list.length; i++)
+            if (list[i].shown !== false && list[i].waypointIds.indexOf(currentHighlightedWaypointId) !== -1)
+                out.push(list[i].id)
+        return out
+    }
+
+    readonly property var highlightedWaypointIds: {
+        var out = [currentHighlightedWaypointId]
+        var list = RouteStore.routes
+        for (var i = 0; i < list.length; i++)
+            if (highlightedRouteIds.indexOf(list[i].id) !== -1)
+                for (var j = 0; j < list[i].waypointIds.length; j++)   // loop: C++ lists are not always real JS arrays
+                    out.push(list[i].waypointIds[j])
+        return out
+    }
+
+    // names of ALL routes the selected waypoint belongs to (hidden ones too: it is information
+    // about the waypoint, not about what is drawn). Reads RouteStore.routes so renames update it.
+    readonly property var selectedWaypointRouteNames: {
+        var routes = RouteStore.routes   // binding dependency; routesUsing() alone would not refresh
+        if (currentHighlightedWaypointId === -1 || routes.length === 0) return []
+        var used = RouteStore.routesUsing(currentHighlightedWaypointId)
+        var names = []
+        for (var i = 0; i < used.length; i++) names.push(used[i].name)
+        return names
+    }
+
+    // selected + part of any route: brighter alert; other highlighted waypoints: alert
+    function waypointColor(waypointId) {
+        if (waypointId === currentHighlightedWaypointId && selectedWaypointRouteNames.length > 0)
+            return Theme.alertHighlight
+        return isHighlighted(waypointId) ? Theme.alert : Theme.highlight
+    }
+
+    function isHighlighted(waypointId) {
+        return waypointId !== -1 && highlightedWaypointIds.indexOf(waypointId) !== -1
     }
 
     // Submenus
@@ -92,6 +134,64 @@ ColumnLayout {
     property string overlaySub: ""  // "routes" | "waypoints"
     property bool showRoutes: true
     property bool showWaypoints: true
+
+    // Pathfinding
+
+    readonly property var routeGeoJson: {
+        var normal = [], highlighted = []
+        var list = RouteStore.routes
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].shown === false || !list[i].path || list[i].path.length < 2) continue
+            var hl = highlightedRouteIds.indexOf(list[i].id) !== -1
+            ;(hl ? highlighted : normal).push({
+                type: "Feature", properties: { id: list[i].id, highlighted: hl },
+                geometry: { type: "LineString", coordinates: list[i].path } })
+        }
+        // highlighted last, so they are drawn on top where routes overlap
+        return { type: "FeatureCollection", features: showRoutes ? normal.concat(highlighted) : [] }
+    }
+
+    // line style: highlighted routes take the selection colour (data-driven, so one layer is enough)
+    readonly property var routePaint: ({
+        "line-color": ["case", ["get", "highlighted"], String(Theme.alert), String(Theme.highlight)],
+        "line-width": ["case", ["get", "highlighted"], 4, 3]
+    })
+
+    property var routeSrc: null
+    property var routeLyr: null
+
+    Component {
+        id: routeSrcComp
+        SourceParameter {
+            styleId: "routes"
+            type: "geojson"
+            property var data: ""
+        }
+    }
+
+    Component {
+        id: routeLyrComp
+        LayerParameter {
+            styleId: "routes-line"
+            type: "line"
+            property string source: "routes"
+            layout: ({ "line-join": "round", "line-cap": "round" })
+            paint: root.routePaint
+        }
+    }
+
+    function pushRoutes() {
+        if (routeLyr) { map.removeStyleParameter(routeLyr); routeLyr.destroy() }   // layer first, then its source
+        if (routeSrc) { map.removeStyleParameter(routeSrc); routeSrc.destroy() }
+
+        routeSrc = routeSrcComp.createObject(map, { "data": JSON.stringify(routeGeoJson) })
+        routeLyr = routeLyrComp.createObject(map)
+        map.addStyleParameter(routeSrc)
+        map.addStyleParameter(routeLyr)
+    }
+
+    onRouteGeoJsonChanged: pushRoutes()
+    Component.onCompleted: pushRoutes()          // create the first pair (empty) at startup
 
     Timer {
         id: dotTimer
@@ -296,14 +396,21 @@ ColumnLayout {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             clip: true
-                            model: root.overlaySub === "waypoints" ? wpstore.waypoints : []
+                            model: root.overlaySub === "waypoints" ? WaypointStore.waypoints : RouteStore.routes
 
                             delegate: MapToolButton {
+                                readonly property bool isRoute: root.overlaySub === "routes"
+                                readonly property bool shown: modelData.shown !== false
                                 width: ListView.view.width
                                 label: modelData.name
-                                value: modelData.shown ? "ON" : "OFF"
-                                active: modelData.shown
-                                onClicked: wpstore.setShown(index, !modelData.shown)
+                                // a route without a calculated path has nothing to draw yet
+                                value: isRoute && !(modelData.path && modelData.path.length > 1)
+                                       ? "NO PATH" : (shown ? "ON" : "OFF")
+                                active: shown
+                                onClicked: {
+                                    if (isRoute) RouteStore.setShown(modelData.id, !shown)
+                                    else WaypointStore.setShown(index, !shown)
+                                }
                             }
 
                             footer: Rectangle {
@@ -337,6 +444,21 @@ ColumnLayout {
 
                 Style {
                     id: mapStyle
+
+                    SourceParameter {
+                        id: routesSource
+                        styleId: "routes"
+                        type: "geojson"
+                        property var data: '{"type":"FeatureCollection","features":[]}'
+                    }
+
+                    LayerParameter {
+                        styleId: "routes-line"
+                        type: "line"
+                        property string source: "routes"
+                        layout: ({ "line-join": "round", "line-cap": "round" })
+                        paint: ({ "line-color": "#ffffff", "line-width": 3 })
+                    }
 
                     SourceParameter {
                         styleId: "sat"
@@ -386,7 +508,7 @@ ColumnLayout {
             // Waypoints
 
             Repeater {
-                model: wpstore.waypoints
+                model: WaypointStore.waypoints
                 delegate: Item {
                     z: 9
                     readonly property real world: 512 * Math.pow(2, root.mapZoom)
@@ -400,13 +522,13 @@ ColumnLayout {
                         x: -7; y: -7
                         rotation: 45
                         color: Theme.background_primary
-                        border.color: root.currentHighlightedWaypointId === modelData.id ? Theme.alert : Theme.highlight
+                        border.color: root.waypointColor(modelData.id)
                         border.width: 2
                     }
                     Text {
                         x: 14; y: -8
                         text: modelData.name
-                        color: root.currentHighlightedWaypointId === modelData.id ? Theme.alert : Theme.highlight
+                        color: root.waypointColor(modelData.id)
                         font { family: "monospace"; pixelSize: 12; bold: true }
                         visible: mapZoom < 11 ? false : true
                     }
@@ -426,6 +548,7 @@ ColumnLayout {
                 lat: root.highlightedWaypoint ? root.highlightedWaypoint.lat : root.gps.lat
                 lon: root.highlightedWaypoint ? root.highlightedWaypoint.lon : root.gps.lon
                 alert: root.currentHighlightedWaypointId !== -1
+                routeNames: root.selectedWaypointRouteNames
                 zoom: root.mapZoom
                 heading: 0
             }

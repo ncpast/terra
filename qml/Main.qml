@@ -18,6 +18,41 @@ ApplicationWindow {
     title: qsTr("TERRA")
     color: Theme.background_primary
 
+    InputPanel {
+        id: keyboard
+        z: 100
+        width: parent.width
+        y: Qt.inputMethod.visible ? parent.height - height : parent.height
+        visible: Qt.inputMethod.visible
+    }
+
+    Rectangle {
+        id: hideKeyboardButton
+        z: 101
+        visible: Qt.inputMethod.visible
+        width: 96
+        height: 44
+        //x: (parent.width - width) / 2
+        y: keyboard.y - height
+        color: Theme.background_primary
+        border.color: Theme.highlight
+        border.width: 1
+
+        Text {
+            anchors.centerIn: parent
+            text: "[v]"
+            color: Theme.highlight
+            font.family: "Hack"
+            font.pixelSize: 16
+            font.weight: 700
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: Qt.inputMethod.hide()
+        }
+    }
+
     SystemStatus { id: sys }
 
     StatusBar {
@@ -43,9 +78,9 @@ ApplicationWindow {
             model: [
                 { src: "pages/MapPage.qml", keep: true  },
                 { src: "pages/Map3D.qml", keep: false },
+                { src: "pages/NotesPage.qml", keep: false },
                 { src: "pages/RoutesPage.qml", keep: false },
                 { src: "pages/WeatherPage.qml", keep: false },
-                { src: "pages/NotesPage.qml", keep: false },
                 { src: "pages/SystemPage.qml", keep: false },
             ]
 

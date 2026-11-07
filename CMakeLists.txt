@@ -17,6 +17,11 @@ qt_add_executable(appterra
     src/main.cpp
 )
 
+qt_add_resources(appterra "kbstyle"
+    PREFIX "/qt/qml/QtQuick/VirtualKeyboard/Styles/TerraBW"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/qml/kbstyle"
+    FILES qml/kbstyle/style.qml)
+
 set_source_files_properties(
     qml/Theme.qml
     qml/GlobalValues.qml
@@ -49,7 +54,23 @@ qt_add_qml_module(appterra
         QML_FILES qml/templates/MapToolButton.qml
         QML_FILES styles/relief.json
         QML_FILES qml/MapHud.qml
+        SOURCES src/routestore.h
+        SOURCES src/router.cpp
+        SOURCES src/grid.h
+        SOURCES src/router.h
+        SOURCES src/geogrid.h
+        SOURCES src/routeplanner.h
+        SOURCES src/osmcost.h
+        SOURCES src/corridor.h
 )
+
+enable_testing()
+find_package(Qt6 REQUIRED COMPONENTS Test)
+
+qt_add_executable(router_tests tests/tst_router.cpp src/router.cpp src/geogrid.h)
+target_include_directories(router_tests PRIVATE src)
+target_link_libraries(router_tests PRIVATE Qt6::Test)
+add_test(NAME router_tests COMMAND router_tests)
 
 target_include_directories(appterra PRIVATE src)
 
